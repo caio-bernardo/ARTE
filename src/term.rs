@@ -11,10 +11,12 @@ use crossterm::{
     Command,
 };
 
+pub type Result<T> = core::result::Result<T, std::io::Error>;
+
 #[derive(Default)]
-pub struct Coord {
-    y: u16,
-    x: u16,
+pub struct Position {
+    pub row: u16,
+    pub column: u16,
 }
 
 pub struct ScreenSize {
@@ -22,26 +24,35 @@ pub struct ScreenSize {
     pub width: u16,
 }
 
-impl Coord {
-    pub const fn new(y: u16, x: u16) -> Self {
-        Self { y, x }
+impl Position {
+    pub const fn new(row: u16, column: u16) -> Self {
+        Self { row, column }
     }
 }
+pub fn init() -> Result<()> {
+    enable_raw_mode()?;
+    clear_screen()?;
+    draw_rows()
+}
 
-pub fn clear_screen() -> Result<(), std::io::Error> {
+pub fn terminate() -> Result<()> {
+    disable_raw_mode()
+}
+
+pub fn clear_screen() -> Result<()> {
     queue_command(Clear(ClearType::All))?;
     Ok(())
 }
 
-pub fn clear_line() -> Result<(), std::io::Error> {
+pub fn clear_line() -> Result<()> {
     queue_command(Clear(ClearType::CurrentLine))?;
     Ok(())
 }
 
-pub fn draw_rows() -> Result<(), std::io::Error> {
+pub fn draw_rows() -> Result<()> {
     let ScreenSize { height, .. } = screen_size()?;
     for row in 0..height {
-        move_cursor_to(Coord::new(row, 0))?;
+        move_carret_to(Position::new(row, 0))?;
         clear_line()?;
         print("~\r")?;
     }
@@ -49,7 +60,7 @@ pub fn draw_rows() -> Result<(), std::io::Error> {
     Ok(())
 }
 
-pub fn screen_size() -> Result<ScreenSize, std::io::Error> {
+pub fn screen_size() -> Result<ScreenSize> {
     let size = crossterm::terminal::size()?;
     Ok(ScreenSize {
         height: size.1,
@@ -57,38 +68,46 @@ pub fn screen_size() -> Result<ScreenSize, std::io::Error> {
     })
 }
 
-pub fn move_cursor_to(pos: Coord) -> Result<(), std::io::Error> {
-    queue_command(MoveTo(pos.x, pos.y))?;
+pub fn move_carret_to(pos: Position) -> Result<()> {
+    queue_command(MoveTo(pos.column, pos.row))?;
     Ok(())
 }
 
-pub fn init() -> Result<(), std::io::Error> {
-    enable_raw_mode()?;
-    clear_screen()?;
-    draw_rows()
+pub fn move_carret_begin_of_line(row_number: u16) -> Result<()> {
+    move_carret_to(Position::new(row_number, 0))
 }
 
-pub fn terminate() -> Result<(), std::io::Error> {
-    disable_raw_mode()
+pub fn move_carret_end_of_line(row_number: u16) -> Result<()> {
+    let ScreenSize { width, .. } = screen_size()?;
+    move_carret_to(Position::new(row_number, width))
 }
 
-pub fn hide_cursor() -> Result<(), std::io::Error> {
+pub fn move_carret_page_up(column_number: u16) -> Result<()> {
+    move_carret_to(Position::new(0, column_number))
+}
+
+pub fn move_carret_page_down(column_number: u16) -> Result<()> {
+    let ScreenSize { height, .. } = screen_size()?;
+    move_carret_to(Position::new(height, column_number))
+}
+
+pub fn hide_carret() -> Result<()> {
     queue_command(Hide)?;
     Ok(())
 }
 
-pub fn show_cursor() -> Result<(), std::io::Error> {
+pub fn show_carret() -> Result<()> {
     queue_command(Show)?;
     io::stdout().flush()?;
     Ok(())
 }
 
-pub fn queue_command(command: impl Command) -> Result<(), std::io::Error> {
-    queue!(io::stdout(), command)?;
+pub fn print(string: impl Display) -> Result<()> {
+    queue_command(Print(string))?;
     Ok(())
 }
 
-pub fn print(string: impl Display) -> Result<(), std::io::Error> {
-    queue_command(Print(string))?;
+pub fn queue_command(command: impl Command) -> Result<()> {
+    queue!(io::stdout(), command)?;
     Ok(())
 }
