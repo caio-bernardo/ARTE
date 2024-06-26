@@ -1,4 +1,5 @@
-#![warn(clippy::all)]
+use std::env;
+use std::path::Path;
 
 use crossterm::cursor::{
     position, MoveDown, MoveLeft, MoveRight, MoveUp, RestorePosition, SavePosition,
@@ -7,22 +8,22 @@ use crossterm::event::{read, Event::Key};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
 use crate::term::{
-    self, clear_line, move_carret_begin_of_line, move_carret_end_of_line, move_carret_page_down,
-    move_carret_page_up, move_carret_to, queue_command, screen_size, Position, Result, ScreenSize,
+    self, move_carret_begin_of_line, move_carret_end_of_line, move_carret_page_down,
+    move_carret_page_up, queue_command, Position, Result,
 };
-
-const NAME: &str = env!("CARGO_PKG_NAME");
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+use crate::view;
 
 #[derive(Default)]
 pub struct Editor {
     cursor_position: Position,
+    view: view::View,
     should_quit: bool,
 }
 
 impl Editor {
     pub fn run(&mut self) {
         term::init().unwrap();
+        self.handle_args();
         let res = self.repl();
         term::terminate().unwrap();
         res.unwrap();
@@ -30,6 +31,7 @@ impl Editor {
 
     fn repl(&mut self) -> Result<()> {
         term::move_carret_to(term::Position::new(0, 0))?;
+
         loop {
             self.update_carret_position()?;
             self.refresh_screen()?;
@@ -50,22 +52,10 @@ impl Editor {
             term::move_carret_to(term::Position::new(0, 0))?;
             print!("Goodbye.\r\n");
         } else {
-            term::draw_rows()?;
-            self.draw_welcome_msg()?;
+            self.view.render()?;
             queue_command(RestorePosition)?;
         }
         term::show_carret()?;
-        Ok(())
-    }
-
-    fn draw_welcome_msg(&self) -> Result<()> {
-        let ScreenSize { height, width } = screen_size()?;
-        move_carret_to(Position::new(height / 3, 0))?;
-        clear_line()?;
-        let mensage = format!("{NAME} editor - version {VERSION}");
-        let mut welcome_msg = format!("~{:^1$}", mensage, (width - 1) as usize);
-        welcome_msg.truncate(width.into());
-        term::print(welcome_msg)?;
         Ok(())
     }
 
@@ -96,5 +86,12 @@ impl Editor {
         let (col, row) = position()?;
         self.cursor_position = Position::new(row, col);
         Ok(())
+    }
+
+    fn handle_args(&mut self) {
+        let args: Vec<String> = env::args().collect();
+        if let Some(file_name) = args.get(1) {
+            self.view.load(Path::new(file_name));
+        }
     }
 }

@@ -1,7 +1,4 @@
-use std::{
-    fmt::Display,
-    io::{self, Write},
-};
+use std::io::{self, Write};
 
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
@@ -31,8 +28,7 @@ impl Position {
 }
 pub fn init() -> Result<()> {
     enable_raw_mode()?;
-    clear_screen()?;
-    draw_rows()
+    clear_screen()
 }
 
 pub fn terminate() -> Result<()> {
@@ -46,17 +42,6 @@ pub fn clear_screen() -> Result<()> {
 
 pub fn clear_line() -> Result<()> {
     queue_command(Clear(ClearType::CurrentLine))?;
-    Ok(())
-}
-
-pub fn draw_rows() -> Result<()> {
-    let ScreenSize { height, .. } = screen_size()?;
-    for row in 0..height {
-        move_carret_to(Position::new(row, 0))?;
-        clear_line()?;
-        print("~\r")?;
-    }
-
     Ok(())
 }
 
@@ -102,7 +87,7 @@ pub fn show_carret() -> Result<()> {
     Ok(())
 }
 
-pub fn print(string: impl Display) -> Result<()> {
+pub fn print(string: &str) -> Result<()> {
     queue_command(Print(string))?;
     Ok(())
 }
