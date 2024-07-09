@@ -4,7 +4,10 @@ use crossterm::{
     cursor::{Hide, MoveTo, Show},
     queue,
     style::Print,
-    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
+    terminal::{
+        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
     Command,
 };
 
@@ -29,19 +32,36 @@ impl Position {
 }
 pub fn init() -> Result<()> {
     enable_raw_mode()?;
-    clear_screen()
+    enter_alternate_screen()?;
+    clear_screen()?;
+    move_carret_to(Position::default())?;
+    execute()?;
+    Ok(())
 }
 
 pub fn terminate() -> Result<()> {
+    leave_alternate_screen()?;
+    clear_screen()?;
+    move_carret_to(Position::default())?;
+    show_carret()?;
+    execute()?;
     disable_raw_mode()
 }
 
-pub fn clear_screen() -> Result<()> {
+fn enter_alternate_screen() -> Result<()> {
+    queue_command(EnterAlternateScreen)
+}
+
+fn leave_alternate_screen() -> Result<()> {
+    queue_command(LeaveAlternateScreen)
+}
+
+fn clear_screen() -> Result<()> {
     queue_command(Clear(ClearType::All))?;
     Ok(())
 }
 
-pub fn clear_line() -> Result<()> {
+fn clear_line() -> Result<()> {
     queue_command(Clear(ClearType::CurrentLine))?;
     Ok(())
 }
@@ -52,6 +72,10 @@ pub fn screen_size() -> Result<ScreenSize> {
         height: size.1,
         width: size.0,
     })
+}
+
+pub fn execute() -> Result<()> {
+    io::stdout().flush()
 }
 
 pub fn move_carret_to(pos: Position) -> Result<()> {
@@ -84,8 +108,13 @@ pub fn hide_carret() -> Result<()> {
 
 pub fn show_carret() -> Result<()> {
     queue_command(Show)?;
-    io::stdout().flush()?;
     Ok(())
+}
+
+pub fn print_line(at: u16, msg: &str) -> Result<()> {
+    move_carret_to(Position { row: at, column: 0 })?;
+    clear_line()?;
+    print(msg)
 }
 
 pub fn print(string: &str) -> Result<()> {

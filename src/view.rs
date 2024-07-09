@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::{
     buffer::Buffer,
-    term::{self, clear_line, move_carret_to, print, screen_size, Position, Result, ScreenSize},
+    term::{self, ScreenSize},
 };
 
 const NAME: &str = env!("CARGO_PKG_NAME");
@@ -25,73 +25,47 @@ impl Default for View {
 }
 
 impl View {
-    pub fn render(&mut self) -> Result<()> {
-        if !self.need_redraw {
-            return Ok(());
-        }
-
-        if self.size.width == 0 || self.size.height == 0 {
-            return Ok(());
-        }
-
-        if self.buf.is_empty() {
-            View::render_welcome_screen()?;
-        } else {
-            self.render_buffer()?;
-        }
-
-        self.need_redraw = false;
-        Ok(())
+    fn draw_row(at: u16, text: &str) {
+        let res = term::print_line(at, text);
+        debug_assert!(res.is_ok(), "Failed to render line");
     }
 
-    fn render_buffer(&self) -> Result<()> {
-        let ScreenSize { height, width } = screen_size()?;
+    pub fn render(&mut self) {
+        if !self.need_redraw {
+            return;
+        }
+
+        let ScreenSize { height, width } = self.size;
+
+        if width == 0 || height == 0 {
+            return;
+        }
+
+        let center = height / 3;
         for row in 0..height {
             // Welcome msg
             if let Some(string) = self.buf.lines.get(row as usize) {
                 let mut string = String::from(string);
                 string.truncate(width.into());
-                View::draw_row(row, &string)?;
+                View::draw_row(row, &string);
+            } else if self.buf.is_empty() && row == center {
+                View::draw_row(row, &Self::welcome_msg(width));
             } else {
-                View::draw_empty_row(row)?;
+                View::draw_row(row, "~");
             }
         }
 
-        Ok(())
+        self.need_redraw = false;
     }
 
-    fn render_welcome_screen() -> Result<()> {
-        let ScreenSize { height, .. } = screen_size()?;
-        for row in 0..height {
-            // Welcome msg
-            if row == height / 3 {
-                View::draw_welcome_msg()?;
-            } else {
-                View::draw_empty_row(row)?;
-            }
+    fn welcome_msg(width: u16) -> String {
+        if width == 0 {
+            return " ".to_string();
         }
-
-        Ok(())
-    }
-
-    fn draw_welcome_msg() -> Result<()> {
-        let width = screen_size()?.width;
         let mensage = format!("{NAME} editor - version {VERSION}");
         let mut welcome_msg = format!("~{:^1$}", mensage, (width - 1) as usize);
         welcome_msg.truncate(width.into());
-        print(&welcome_msg)
-    }
-
-    fn draw_empty_row(at: u16) -> Result<()> {
-        move_carret_to(Position::new(at, 0))?;
-        clear_line()?;
-        print("~")
-    }
-
-    fn draw_row(at: u16, text: &str) -> Result<()> {
-        move_carret_to(Position::new(at, 0))?;
-        clear_line()?;
-        print(text)
+        welcome_msg
     }
 
     // Loads a file into memory in buf
