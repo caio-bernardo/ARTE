@@ -1,5 +1,3 @@
-#![warn(clippy::all, clippy::pedantic)]
-
 mod buffer;
 mod editor;
 mod term;

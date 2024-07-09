@@ -10,12 +10,13 @@ use crossterm::{
 
 pub type Result<T> = core::result::Result<T, std::io::Error>;
 
-#[derive(Default)]
+#[derive(Default, Copy, Clone)]
 pub struct Position {
     pub row: u16,
     pub column: u16,
 }
 
+#[derive(Copy, Clone, Default)]
 pub struct ScreenSize {
     pub height: u16,
     pub width: u16,
